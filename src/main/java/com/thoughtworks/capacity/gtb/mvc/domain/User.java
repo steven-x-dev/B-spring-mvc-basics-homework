@@ -16,6 +16,8 @@ import javax.validation.constraints.Size;
 @Builder
 public class User {
 
+    private Integer id;
+
     @Pattern(regexp = "^[A-Za-z0-9_]{3,10}$")
     @NotNull
     private String username;
