@@ -1,4 +1,4 @@
-package com.thoughtworks.capacity.gtb.mvc.error;
+package com.thoughtworks.capacity.gtb.mvc.exception;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
