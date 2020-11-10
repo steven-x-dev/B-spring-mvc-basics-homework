@@ -84,4 +84,20 @@ class UserTest {
         assertEquals(0, constraintViolations.size());
     }
 
+    @Test
+    void should_not_allow_username_given_null_username() {
+        User user = User.builder().password("abcde12345").build();
+        Set<ConstraintViolation<User>> constraintViolations = validator.validate(user);
+        assertEquals(1, constraintViolations.size());
+        assertEquals("username", constraintViolations.iterator().next().getPropertyPath().toString());
+    }
+
+    @Test
+    void should_not_allow_password_given_null_password() {
+        User user = User.builder().username("steven_123").build();
+        Set<ConstraintViolation<User>> constraintViolations = validator.validate(user);
+        assertEquals(1, constraintViolations.size());
+        assertEquals("password", constraintViolations.iterator().next().getPropertyPath().toString());
+    }
+
 }

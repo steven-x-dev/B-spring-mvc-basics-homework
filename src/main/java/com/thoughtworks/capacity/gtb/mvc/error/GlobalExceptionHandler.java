@@ -15,8 +15,7 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ResponseBody
     public Error handleInvalidArgumentException(MethodArgumentNotValidException e) {
-        return new Error(HttpStatus.BAD_REQUEST.value(),
-                String.format("%s不合法", Util.getInvalidFieldName(e)));
+        return new Error(HttpStatus.BAD_REQUEST.value(), Util.getErrorMessage(e));
     }
 
 }

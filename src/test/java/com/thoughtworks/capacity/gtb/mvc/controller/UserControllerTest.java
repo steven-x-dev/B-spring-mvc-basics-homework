@@ -115,7 +115,7 @@ class UserControllerTest {
     }
 
     @Test
-    void should_not_allow_create_user_given_user_with_incorrect_email() throws Exception {
+    void should_not_create_user_given_user_with_incorrect_email() throws Exception {
         User user = User.builder().username("steven_123").password("abcde12345").email("12345").build();
         mockMvc.perform(post("/register")
                 .accept(MediaType.APPLICATION_JSON)
@@ -137,6 +137,34 @@ class UserControllerTest {
                 .characterEncoding(StandardCharsets.UTF_8.name())
                 .content(objectMapper.writeValueAsString(user)))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void should_not_create_user_given_null_username() throws Exception {
+        User user = User.builder().password("abcde12345").build();
+        mockMvc.perform(post("/register")
+                .accept(MediaType.APPLICATION_JSON)
+                .contentType(MediaType.APPLICATION_JSON)
+                .characterEncoding(StandardCharsets.UTF_8.name())
+                .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
+                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
+                .andExpect(jsonPath("$.message", is("用户名不能为空")));
+    }
+
+    @Test
+    void should_not_create_user_given_null_password() throws Exception {
+        User user = User.builder().username("steven_123").build();
+        mockMvc.perform(post("/register")
+                .accept(MediaType.APPLICATION_JSON)
+                .contentType(MediaType.APPLICATION_JSON)
+                .characterEncoding(StandardCharsets.UTF_8.name())
+                .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
+                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
+                .andExpect(jsonPath("$.message", is("密码不能为空")));
     }
 
 }

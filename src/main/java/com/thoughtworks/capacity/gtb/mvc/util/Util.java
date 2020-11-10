@@ -7,9 +7,17 @@ import java.util.List;
 
 public class Util {
 
-    public static String getInvalidFieldName(MethodArgumentNotValidException e) {
-        List<FieldError> fieldErrors = e.getBindingResult().getFieldErrors();
-        String field = fieldErrors.get(0).getField();
+    public static String getErrorMessage(MethodArgumentNotValidException e) {
+        FieldError fieldError = e.getBindingResult().getFieldErrors().get(0);
+        return String.format("%s%s", getInvalidFieldName(fieldError), getErrorType(fieldError));
+    }
+
+    private static String getErrorType(FieldError fieldError) {
+        return fieldError.getRejectedValue() == null ? "不能为空" : "不合法";
+    }
+
+    private static String getInvalidFieldName(FieldError fieldError) {
+        String field = fieldError.getField();
         switch (field) {
             case "username":
                 return "用户名";
