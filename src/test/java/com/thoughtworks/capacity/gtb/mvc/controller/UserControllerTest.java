@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.hamcrest.Matchers.any;
 import static org.hamcrest.Matchers.is;
@@ -43,128 +44,98 @@ class UserControllerTest {
         objectMapper = new ObjectMapper();
     }
 
-    @Test
-    void should_not_create_user_given_username_with_disallowed_characters() throws Exception {
-        User user = User.builder().username("steven+123").password("abcde12345").build();
-        mockMvc.perform(post("/register")
+    private Performer register(User user) {
+        return () -> mockMvc.perform(post("/register")
                 .accept(MediaType.APPLICATION_JSON)
                 .contentType(MediaType.APPLICATION_JSON)
                 .characterEncoding(StandardCharsets.UTF_8.name())
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isBadRequest())
+                .content(objectMapper.writeValueAsString(user)));
+    }
+
+    private Performer login(String username, String password) {
+        return () -> mockMvc.perform(get("/login")
+                .param("username", username)
+                .param("password", password)
+                .accept(MediaType.APPLICATION_JSON)
+                .characterEncoding(StandardCharsets.UTF_8.name()));
+    }
+
+    private Validator validateError(HttpStatus httpStatus, String errorMessage) {
+        return resultActions -> resultActions
+                    .andExpect(status().is(httpStatus.value()))
+                    .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
+                    .andExpect(jsonPath("$.code", is(httpStatus.value())))
+                    .andExpect(jsonPath("$.message", is(errorMessage)));
+    }
+
+    private Validator validateRegisterSuccess() {
+        return resultActions -> resultActions.andExpect(status().is(HttpStatus.CREATED.value()));
+    }
+
+    private Validator validateLoginSuccess(User user) {
+        return resultActions -> resultActions
+                .andExpect(status().isOk())
                 .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("用户名不合法")));
+                .andExpect(jsonPath("$.id", any(Integer.class)))
+                .andExpect(jsonPath("$.username", is(user.getUsername())))
+                .andExpect(jsonPath("$.password", is(user.getPassword())))
+                .andExpect(jsonPath("$.email", is(user.getEmail())));
+    }
+
+    @Test
+    void should_not_create_user_given_username_with_disallowed_characters() throws Exception {
+        User user = User.builder().username("steven+123").password("abcde12345").build();
+        register(user).andThen(validateError(HttpStatus.BAD_REQUEST, "用户名不合法"));
     }
 
     @Test
     void should_not_create_user_given_username_with_too_few_characters() throws Exception {
         User user = User.builder().username("st").password("abcde12345").build();
-        mockMvc.perform(post("/register")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .characterEncoding(StandardCharsets.UTF_8.name())
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("用户名不合法")));
+        register(user).andThen(validateError(HttpStatus.BAD_REQUEST, "用户名不合法"));
     }
 
     @Test
     void should_not_create_user_given_username_with_too_many_characters() throws Exception {
         User user = User.builder().username("steven_12345").password("abcde12345").build();
-        mockMvc.perform(post("/register")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .characterEncoding(StandardCharsets.UTF_8.name())
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("用户名不合法")));
+        register(user).andThen(validateError(HttpStatus.BAD_REQUEST, "用户名不合法"));
     }
 
     @Test
     void should_not_create_user_given_password_with_too_few_characters() throws Exception {
         User user = User.builder().username("steven_123").password("abcd").build();
-        mockMvc.perform(post("/register")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .characterEncoding(StandardCharsets.UTF_8.name())
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("密码不合法")));
+        register(user).andThen(validateError(HttpStatus.BAD_REQUEST, "密码不合法"));
     }
 
     @Test
     void should_not_create_user_given_password_with_too_many_characters() throws Exception {
         User user = User.builder().username("steven_123").password("abcde12345xyz").build();
-        mockMvc.perform(post("/register")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .characterEncoding(StandardCharsets.UTF_8.name())
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("密码不合法")));
+        register(user).andThen(validateError(HttpStatus.BAD_REQUEST, "密码不合法"));
     }
 
     @Test
     void should_not_create_user_given_user_with_incorrect_email() throws Exception {
         User user = User.builder().username("steven_123").password("abcde12345").email("12345").build();
-        mockMvc.perform(post("/register")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .characterEncoding(StandardCharsets.UTF_8.name())
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("邮箱地址不合法")));
+        register(user).andThen(validateError(HttpStatus.BAD_REQUEST, "邮箱地址不合法"));
     }
 
     @Test
     void should_not_create_user_given_null_username() throws Exception {
         User user = User.builder().password("abcde12345").build();
-        mockMvc.perform(post("/register")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .characterEncoding(StandardCharsets.UTF_8.name())
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("用户名不能为空")));
+        register(user).andThen(validateError(HttpStatus.BAD_REQUEST, "用户名不能为空"));
     }
 
     @Test
     void should_not_create_user_given_null_password() throws Exception {
         User user = User.builder().username("steven_123").build();
-        mockMvc.perform(post("/register")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .characterEncoding(StandardCharsets.UTF_8.name())
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("密码不能为空")));
+        register(user).andThen(validateError(HttpStatus.BAD_REQUEST, "密码不能为空"));
     }
 
     @Test
     @Order(101)
     void should_create_user_given_correct_username_and_password_without_email() throws Exception {
         User user = User.builder().username("steven_123").password("abcde12345").build();
-        mockMvc.perform(post("/register")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .characterEncoding(StandardCharsets.UTF_8.name())
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isCreated())
+        register(user)
+                .andThen(validateRegisterSuccess())
                 .andDo(result -> registeredUsers.add(user));
     }
 
@@ -172,12 +143,8 @@ class UserControllerTest {
     @Order(102)
     void should_create_user_given_correct_username_and_password_with_correct_email() throws Exception {
         User user = User.builder().username("steven_456").password("abcde12345").email("steven@tw.com").build();
-        mockMvc.perform(post("/register")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .characterEncoding(StandardCharsets.UTF_8.name())
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isCreated())
+        register(user)
+                .andThen(validateRegisterSuccess())
                 .andDo(result -> registeredUsers.add(user));
     }
 
@@ -185,143 +152,54 @@ class UserControllerTest {
     @Order(103)
     void should_not_create_user_given_existing_username() throws Exception {
         User user = User.builder().username("steven_123").password("abcde12345").build();
-        mockMvc.perform(post("/register")
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_JSON)
-                .characterEncoding(StandardCharsets.UTF_8.name())
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("用户名已存在")));
+        register(user).andThen(validateError(HttpStatus.BAD_REQUEST, "用户名已存在"));
     }
 
     @Test
     void should_not_login_given_username_with_disallowed_characters() throws Exception {
-        User user = User.builder().username("steven+123").password("abcde12345").build();
-        mockMvc.perform(get("/login")
-                .param("username", user.getUsername())
-                .param("password", user.getPassword())
-                .accept(MediaType.APPLICATION_JSON)
-                .characterEncoding(StandardCharsets.UTF_8.name())
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("用户名不合法")));
+        login("steven+123", "abcde12345").andThen(validateError(HttpStatus.BAD_REQUEST, "用户名不合法"));
     }
 
     @Test
     void should_not_login_given_username_with_too_few_characters() throws Exception {
-        User user = User.builder().username("st").password("abcde12345").build();
-        mockMvc.perform(get("/login")
-                .param("username", user.getUsername())
-                .param("password", user.getPassword())
-                .accept(MediaType.APPLICATION_JSON)
-                .characterEncoding(StandardCharsets.UTF_8.name())
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("用户名不合法")));
+        login("st", "abcde12345").andThen(validateError(HttpStatus.BAD_REQUEST, "用户名不合法"));
     }
 
     @Test
     void should_not_login_given_username_with_too_many_characters() throws Exception {
-        User user = User.builder().username("steven_12345").password("abcde12345").build();
-        mockMvc.perform(get("/login")
-                .param("username", user.getUsername())
-                .param("password", user.getPassword())
-                .accept(MediaType.APPLICATION_JSON)
-                .characterEncoding(StandardCharsets.UTF_8.name())
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("用户名不合法")));
+        login("steven_12345", "abcde12345").andThen(validateError(HttpStatus.BAD_REQUEST, "用户名不合法"));
     }
 
     @Test
     void should_not_login_given_password_with_too_few_characters() throws Exception {
-        User user = User.builder().username("steven_123").password("abcd").build();
-        mockMvc.perform(get("/login")
-                .param("username", user.getUsername())
-                .param("password", user.getPassword())
-                .accept(MediaType.APPLICATION_JSON)
-                .characterEncoding(StandardCharsets.UTF_8.name())
-                .content(objectMapper.writeValueAsString(user)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("密码不合法")));
+        login("steven_123", "abcd").andThen(validateError(HttpStatus.BAD_REQUEST, "密码不合法"));
     }
 
     @Test
     void should_not_login_given_password_with_too_many_characters() throws Exception {
-        User user = User.builder().username("steven_123").password("abcde12345xyz").build();
-        mockMvc.perform(get("/login")
-                .param("username", user.getUsername())
-                .param("password", user.getPassword())
-                .characterEncoding(StandardCharsets.UTF_8.name()))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("密码不合法")));
+        login("steven_123", "abcde12345xyz").andThen(validateError(HttpStatus.BAD_REQUEST, "密码不合法"));
     }
 
     @Test
     void should_not_login_given_null_username() throws Exception {
-        User user = User.builder().password("abcde12345").build();
-        mockMvc.perform(get("/login")
-                .param("username", user.getUsername())
-                .param("password", user.getPassword())
-                .characterEncoding(StandardCharsets.UTF_8.name()))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("用户名不能为空")));
+        login(null, "abcde12345xyz").andThen(validateError(HttpStatus.BAD_REQUEST, "用户名不能为空"));
     }
 
     @Test
     void should_not_login_given_null_password() throws Exception {
-        User user = User.builder().username("steven_123").build();
-        mockMvc.perform(get("/login")
-                .param("username", user.getUsername())
-                .param("password", user.getPassword())
-                .characterEncoding(StandardCharsets.UTF_8.name()))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.message", is("密码不能为空")));
+        login("steven_123", null).andThen(validateError(HttpStatus.BAD_REQUEST, "密码不能为空"));
     }
 
     @Test
     void should_not_login_given_wrong_credentials() throws Exception {
-        User user = User.builder().username("steven_789").password("xyz789").build();
-        mockMvc.perform(get("/login")
-                .param("username", user.getUsername())
-                .param("password", user.getPassword())
-                .characterEncoding(StandardCharsets.UTF_8.name()))
-                .andExpect(status().isUnauthorized())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.code", is(HttpStatus.UNAUTHORIZED.value())))
-                .andExpect(jsonPath("$.message", is("用户名或密码错误")));
+        login("steven_789", "xyz789").andThen(validateError(HttpStatus.UNAUTHORIZED, "用户名或密码错误"));
     }
 
     @Test
     @Order(201)
     void should_login_given_correct_credentials() throws Exception {
-        User user = registeredUsers.get(0);
-        mockMvc.perform(get("/login")
-                .param("username", user.getUsername())
-                .param("password", user.getPassword())
-                .characterEncoding(StandardCharsets.UTF_8.name()))
-                .andExpect(status().isOk())
-                .andExpect(content().encoding(StandardCharsets.UTF_8.name()))
-                .andExpect(jsonPath("$.id", any(Integer.class)))
-                .andExpect(jsonPath("$.username", is(user.getUsername())))
-                .andExpect(jsonPath("$.password", is(user.getPassword())))
-                .andExpect(jsonPath("$.email", is(user.getEmail())));
+        User user = registeredUsers.stream().filter(u -> u.getEmail() != null).collect(Collectors.toList()).get(0);
+        login(user.getUsername(), user.getPassword()).andThen(validateLoginSuccess(user));
     }
 
 }
